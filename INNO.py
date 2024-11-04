@@ -1,26 +1,35 @@
 from flask import Flask, request, jsonify
 import requests
+from PIL import Image
+import io
 
 app = Flask(__name__)
 
-# 替换为您的 Google Chat Webhook URL
+# 替换为您的 Google Chat Webhook URL（请确保这个 URL 和 Token 是有效的）
 WEBHOOK = 'https://chat.googleapis.com/v1/spaces/AAAA60KHhTs/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=G-mZEz98Q-wywBK4NP8aNXOuhKY_RBAcc-ThZNghuhw'
-GPT_API_KEY = 'AIzaSyA_zQOXl3AiK93ckHY2Rz3ItYkwI6O4zDU'
+# 替换为你的有效 GPT API 密钥
+GPT_API_KEY = 'AIzaSyCZqk89jWUd4EJ9ou37EVeiFJCx44FnxQU'
 
 
 @app.route('/')
 def home():
-    return "Flask app is running. Use /chat for Google Chat integration."
+    return "Flask app is running. Use /upload to upload images."
 
 
-@app.route('/chat', methods=['POST'])
-def chat():
-    data = request.json
-    # 解析图片的 URL
-    image_url = data['message']['attachments'][0]['imageUrl']
+@app.route('/upload', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    # 将上传的图片文件转为 Image 对象
+    image = Image.open(file.stream)
 
     # 处理图片并获取分析结果
-    analysis_result = analyze_image(image_url)
+    analysis_result = analyze_image(image)
 
     # 调用 GPT 模型
     gpt_result = call_gpt(analysis_result)
@@ -31,14 +40,15 @@ def chat():
     return jsonify({"status": "success"}), 200
 
 
-def analyze_image(image_url):
-    # 在这里处理图片并返回尺寸和特殊工艺的描述
-    return "尺寸: 10cm x 5cm; 特殊工艺: 手工雕刻"
+def analyze_image(image):
+    # 这里可以根据需要对图片进行处理
+    # 假设返回一个固定的描述，实际应用中可以加入更多逻辑
+    return "尺寸: {} x {}; 特殊工艺: 手工雕刻".format(image.size[0], image.size[1])
 
 
 def call_gpt(analysis_result):
     headers = {
-        'Authorization': f'Bearer {GPT_API_KEY}',
+        'Authorization': f'Bearer {GPT_API_KEY}',  # 确保你的 GPT API 密钥有效
         'Content-Type': 'application/json'
     }
     payload = {
@@ -57,7 +67,8 @@ def send_to_chat(message):
     payload = {
         "text": message
     }
-    requests.post(WEBHOOK, json=payload)
+    response = requests.post(WEBHOOK, json=payload)  # 检查 Webhook 的响应
+    print(f'Sending to chat: {payload}, Response Code: {response.status_code}, Response: {response.text}')
 
 
 if __name__ == '__main__':
